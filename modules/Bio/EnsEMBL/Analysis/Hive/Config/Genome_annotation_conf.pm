@@ -54,11 +54,15 @@ sub default_options {
     'pipe_db_port'              => '', # port for pipeline host
     'databases_port'            => '', # port for general output db host
     'dna_db_port'               => '', # port for dna db host
+    'registry_host'             => '', # host for registry db
+    'registry_port'             => '', # port for registry db
+    'registry_db'               => '', # name for registry db
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'.long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
@@ -77,8 +81,10 @@ sub default_options {
     'species_url'               => '' || $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
+    'skip_repeatmodeler'        => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
+    'skip_lastz'                => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
     'skip_long_read'            => '1', # Will skip long read analyses if 1
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
@@ -131,13 +137,18 @@ sub default_options {
     'projection_source_db_name'    => 'homo_sapiens_core_96_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
+    'projection_source_production_name' => 'homo_sapiens',
+
+    'compara_db_name'     => 'leanne_ensembl_compara_95',
+    'compara_db_server'  => 'mysql-ens-genebuild-prod-5',
+    'compara_db_port'    => 4531,
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_db_name'     => 'PROJECTION_LASTZ_DBNAME',
-    'projection_lastz_db_server'   => 'PROJECTION_LASTZ_SERVER',
-    'projection_lastz_db_port'     => 'PROJECTION_LASTZ_PORT',
+    'projection_lastz_db_name'     => $self->o('pipe_db_name'),
+    'projection_lastz_db_server'   => $self->o('pipe_db_server'),
+    'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
     'provider_name'                => 'Ensembl',
     'provider_url'                 => 'www.ensembl.org',
@@ -167,14 +178,8 @@ sub default_options {
     'genewise_db_server'           => $self->o('databases_server'),
     'genewise_db_port'             => $self->o('databases_port'),
 
-    'projection_coding_db_server'  => $self->o('databases_server'),
-    'projection_coding_db_port'    => $self->o('databases_port'),
-
-    'cesar_projection_coding_db_server'  => $self->o('databases_server'),
-    'cesar_projection_coding_db_port'    => $self->o('databases_port'),
-    
-    'output_projection_db_server'  => $self->o('databases_server'),
-    'output_projection_db_port'    => $self->o('databases_port'),
+    'projection_db_server'  => $self->o('databases_server'),
+    'projection_db_port'    => $self->o('databases_port'),
 
     'projection_realign_db_server' => $self->o('databases_server'),
     'projection_realign_db_port'   => $self->o('databases_port'),
@@ -252,7 +257,7 @@ sub default_options {
     'production_db_port'           => '4483',
 
 
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
+    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
 
 ########################
 # BLAST db paths
@@ -287,7 +292,7 @@ sub default_options {
                                    $self->o('genblast_nr_db'),
                                    $self->o('genblast_rnaseq_support_nr_db'),
                                    $self->o('rnaseq_for_layer_nr_db'),
-                                   $self->o('projection_coding_db'),
+                                   $self->o('selected_projection_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
@@ -362,7 +367,7 @@ sub default_options {
 ########################
 
     'num_tokens' => 10,
-    mysql_dump_options => '--max_allowed_packet=400MB',
+    mysql_dump_options => '--max_allowed_packet=1000MB',
 
 ########################
 # Executable paths
@@ -630,6 +635,156 @@ sub default_options {
     'layer_annotation_mem' => '3900',
     'genebuilder_mem'      => '1900',
 
+
+
+########################
+# LastZ
+########################
+
+    'compara_master'             => 'compara_master',
+    'compara_conf_file'             => '',
+    'compara_innodb_schema'         => 1,
+    'compara_genome_db_update_path' => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/update_genome.pl'),
+    'compara_mlss_script_path'      => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/create_mlss.pl'),
+    'compara_mlss_reg_conf_path'    => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/production_reg_ensembl_conf.pl'),
+    'compara_populate_new_database_exe' => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/populate_new_database.pl'),
+    'compara_only_cellular_component' => undef,
+    'compara_dump_dir'              => catdir($self->o('output_path'),'lastz'),
+
+    'mlss_id_list' => undef,
+    'compara_collection' => '',
+
+    'compara_ref_species'       => $self->o('projection_source_production_name'),
+    'compara_non_ref_species'   => $self->o('production_name'),
+    'only_cellular_component'   => undef,   # Do we load *all* the dnafrags or only the ones from a specific cellular-component ?
+    'mix_cellular_components'   => 0,       # Do we try to allow the nuclear genome vs MT, etc ?
+    'dump_min_nib_size'         => 11500000,
+    'dump_min_chunk_size'       => 1000000,
+    'dump_min_chunkset_size'    => 1000000,
+    'quick' => 1,
+    'default_chunks' => {
+      'reference'   => {
+        'homo_sapiens' => {
+          'chunk_size' => 30000000,
+          'overlap'    => 0,
+          'include_non_reference' => -1, #1  => include non_reference regions (eg human assembly patches)
+                                         #0  => do not include non_reference regions
+                                         #-1 => auto-detect (only include non_reference regions if the non-reference species is high-coverage
+                                         #ie has chromosomes since these analyses are the only ones we keep up-to-date with the patches-pipeline)
+          'masking_options' => '{default_soft_masking => 1}',
+           # if you have a specific selection of repeat elements for the masking
+           #'masking_options_file' => $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/human36.spec'),
+        },
+        #non human example
+        'default' => {
+          'chunk_size'      => 10000000,
+          'overlap'         => 0,
+          'masking_options' => '{default_soft_masking => 1}'
+        },
+      },
+      'non_reference' => {
+        'chunk_size'      => 10100000,
+        'group_set_size'  => 10100000,
+        'overlap'         => 100000,
+        'masking_options' => '{default_soft_masking => 1}'
+      },
+    },
+
+    'compara_window_size' => 10000,
+    'filter_duplicates_rc_name' => '2GB_lastz',
+    'filter_duplicates_himem_rc_name' => '8GB_lastz',
+
+   #
+    #Default pair_aligner
+    #
+    'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
+    'pair_aligner_logic_name' => 'LastZ',
+    'pair_aligner_module' => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
+
+    'pair_aligner_options' => {
+       default => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac', # ensembl genomes settings
+       7742    => 'T=1 K=3000 L=3000 H=2200 O=400 E=30 --ambiguous=iupac', # vertebrates - i.e. ensembl-specific
+       9526    => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 Q=' . $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/primate.matrix').' --ambiguous=iupac', # primates
+       33554   => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 --ambiguous=iupac', # carnivora
+       3913    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
+       4070    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
+    },
+
+    #
+    #Default chain
+    #
+    'chain_input_method_link' => [1001, 'LASTZ_RAW'],
+    'chain_output_method_link' => [1002, 'LASTZ_CHAIN'],
+
+    #linear_gap=>medium for more closely related species, 'loose' for more distant
+    'linear_gap' => 'medium',
+
+    'chain_parameters' => {'max_gap'=>'50','linear_gap'=> $self->o('linear_gap'), 'faToNib' => $self->o('faToNib_exe'), 'lavToAxt'=> $self->o('lavToAxt_exe'), 'axtChain'=>$self->o('axtChain_exe'), 'max_blocks_for_chaining' => 100000},
+
+    #
+    #Default patch_alignments
+    #
+    'patch_alignments' => 0,  #set to 1 to align the patches of a species to many other species
+
+    #
+    #Default net
+    #
+    'net_input_method_link' => [1002, 'LASTZ_CHAIN'],
+    'net_output_method_link' => [16, 'LASTZ_NET'],
+    'net_ref_species' => $self->o('compara_ref_species'),  #default to ref_species
+    'net_parameters' => {'max_gap'=>'50', 'chainNet'=>$self->o('chainNet_exe')},
+    'bidirectional' => 0,
+
+    #
+    #Default healthcheck
+    #
+    'previous_db' => 'compara_prev',
+    'prev_release' => 0,   # 0 is the default and it means "take current release number and subtract 1"
+    'max_percent_diff' => 20,
+    'max_percent_diff_patches' => 99.99,
+    'do_pairwise_gabs' => 1,
+    'do_compare_to_previous_db' => 0,
+
+    'compara_bed_dir' => $self->o('compara_dump_dir').'/bed_dir',
+    'compara_feature_dir' => $self->o('compara_dump_dir').'/feature_dumps',
+
+    #
+    #Default pairaligner config
+    #
+    'skip_pairaligner_stats' => 1, #skip this module if set to 1
+
+    'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
+    'pair_aligner_logic_name' => 'LastZ',
+    'pair_aligner_module' => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
+    'chain_input_method_link' => [1001, 'LASTZ_RAW'],
+    'chain_output_method_link' => [1002, 'LASTZ_CHAIN'],
+    'linear_gap' => 'medium',
+    'net_input_method_link' => [1002, 'LASTZ_CHAIN'],
+    'net_output_method_link' => [16, 'LASTZ_NET'],
+
+    # Capacities
+    'pair_aligner_analysis_capacity' => 700,
+    'pair_aligner_batch_size' => 40,
+    'chain_hive_capacity' => 200,
+    'chain_batch_size' => 10,
+    'net_hive_capacity' => 300,
+    'net_batch_size' => 10,
+    'filter_duplicates_hive_capacity' => 200,
+    'filter_duplicates_batch_size' => 10,
+
+    # LastZ is used to align the genomes
+    'pair_aligner_exe'  => $self->o('lastz_exe'),
+    'cellar_dir'                        => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
+    'lastz_exe'                         => catfile($self->o('cellar_dir'),'lastz/1.04.00/bin/lastz'),
+    'axtChain_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/axtChain'),
+    'chainNet_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/chainNet'),
+    'faToNib_exe'                       => catfile($self->o('cellar_dir'),'kent/v335_1/bin/faToNib'),
+    'lavToAxt_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/lavToAxt'),
+    'compare_beds_exe'                  => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/compare_beds.pl'),
+    'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
+    'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
+
+
 ########################
 # db info
 ########################
@@ -641,6 +796,17 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
+
+
+   'compara_db' => {
+      -dbname => $self->o('compara_db_name'),
+      -host   => $self->o('compara_db_server'),
+      -port   => $self->o('compara_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
 
     'cdna_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_cdna_'.$self->o('release_number'),
@@ -764,28 +930,19 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'projection_coding_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_proj_coding_'.$self->o('release_number'),
-      -host   => $self->o('projection_coding_db_server'),
-      -port   => $self->o('projection_coding_db_port'),
+    'projection_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_proj_'.$self->o('release_number'),
+      -host   => $self->o('projection_db_server'),
+      -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-    
-    'cesar_projection_coding_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_cesar_proj_coding_'.$self->o('release_number'),
-      -host   => $self->o('cesar_projection_coding_db_server'),
-      -port   => $self->o('cesar_projection_coding_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
-    
-    'projection_output_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_output_proj_'.$self->o('release_number'),
-      -host   => $self->o('output_projection_db_server'),
-      -port   => $self->o('output_projection_db_port'),
+
+    'selected_projection_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_sel_proj_'.$self->o('release_number'),
+      -host   => $self->o('projection_db_server'),
+      -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -977,7 +1134,7 @@ sub default_options {
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production_#wide_ensembl_release#',
+      -dbname => 'ensembl_production',
       -driver => $self->o('hive_driver'),
     },
 
@@ -1025,6 +1182,21 @@ sub pipeline_create_commands {
         }
     }
     $tables .= ' KEY(SM), KEY(ID)';
+
+################
+# LastZ
+################
+
+    my $second_pass     = exists $self->{'_is_second_pass'};
+    $self->{'_is_second_pass'} = $second_pass;
+    return $self->SUPER::pipeline_create_commands if $self->can('no_compara_schema');
+    my $pipeline_url    = $self->pipeline_url();
+    my $parsed_url      = $second_pass && Bio::EnsEMBL::Hive::Utils::URL::parse( $pipeline_url );
+    my $driver          = $second_pass ? $parsed_url->{'driver'} : '';
+
+################
+# /LastZ
+################
 
     return [
     # inheriting database and hive tables' creation
@@ -1079,6 +1251,29 @@ sub pipeline_create_commands {
 #1;
 #}
 #EOF",
+
+#################
+# LastZ
+#################
+
+     'mkdir -p '.$self->o('compara_dump_dir'),
+     'mkdir -p '.$self->o('compara_bed_dir'),
+      # Compara 'release' tables will be turned from MyISAM into InnoDB on the fly by default:
+      ($self->o('compara_innodb_schema') ? "sed 's/ENGINE=MyISAM/ENGINE=InnoDB/g' " : 'cat ')
+      . $self->check_file_in_ensembl('ensembl-compara/sql/table.sql').' | '.$self->db_cmd(),
+
+      # Compara 'pipeline' tables are already InnoDB, but can be turned to MyISAM if needed:
+      ($self->o('compara_innodb_schema') ? 'cat ' : "sed 's/ENGINE=InnoDB/ENGINE=MyISAM/g' ")
+      . $self->check_file_in_ensembl('ensembl-compara/sql/pipeline-tables.sql').' | '.$self->db_cmd(),
+
+      # MySQL specific procedures
+      $driver eq 'mysql' ? ($self->db_cmd().' < '.$self->check_file_in_ensembl('ensembl-compara/sql/procedures.'.$driver)) : (),
+
+#################
+# /LastZ
+#################
+
+
     ];
 }
 
@@ -1093,6 +1288,8 @@ sub pipeline_wide_parameters {
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
     skip_long_read => $self->o('skip_long_read'),
+    skip_lastz => $self->o('skip_lastz'),
+    skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
@@ -1152,7 +1349,7 @@ sub pipeline_analyses {
 #
 ###############################################################################
 
-      {
+     {
         -logic_name => 'download_rnaseq_csv',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
         -rc_name => '1GB',
@@ -1167,7 +1364,7 @@ sub pipeline_analyses {
          },
 
         -input_ids  => [
-          {
+			{
             assembly_name => $self->o('assembly_name'),
             assembly_accession => $self->o('assembly_accession'),
             assembly_refseq_accession => $self->o('assembly_refseq_accession'),
@@ -1176,7 +1373,7 @@ sub pipeline_analyses {
       },
 
 
-      {
+     {
         -logic_name => 'download_genus_rnaseq_csv',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
         -rc_name => '1GB',
@@ -1184,6 +1381,40 @@ sub pipeline_analyses {
           study_accession => $self->o('study_accession'),
           taxon_id => $self->o('genus_taxon_id'),
           inputfile => $self->o('rnaseq_summary_file_genus'),
+        },
+
+        -flow_into => {
+           1 => ['download_long_read_csv'],
+         },
+      },
+
+
+     {
+        -logic_name => 'download_long_read_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('species_taxon_id'),
+          inputfile => $self->o('long_read_summary_file'),
+          read_type => 'isoseq',
+        },
+
+        -flow_into => {
+           1 => ['download_genus_long_read_csv'],
+         },
+      },
+
+
+     {
+        -logic_name => 'download_genus_long_read_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('genus_taxon_id'),
+          inputfile => $self->o('long_read_summary_file_genus'),
+          read_type => 'isoseq',
         },
 
         -flow_into => {
@@ -1304,7 +1535,7 @@ sub pipeline_analyses {
           output_path   => $self->o('output_path'),
           target_db     => $self->o('reference_db'),
         },
-        -rc_name    => '4GB',
+        -rc_name    => '8GB',
         -flow_into  => {
           1 => ['load_meta_info'],
         },
@@ -1748,7 +1979,7 @@ sub pipeline_analyses {
         -logic_name => 'fan_repeatmodeler',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ]; then exit 0; else exit 42;fi',
+          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ] && [ "#skip_repeatmodeler#" == "0" ]; then exit 0; else exit 42;fi',
           return_codes_2_branches => {'42' => 2},
         },
         -rc_name    => 'default',
@@ -1857,7 +2088,7 @@ sub pipeline_analyses {
         -parameters => {
                          'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.$self->o('softmasked_genome_file').' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.$self->o('softmasked_genome_file').'.asnb;makeblastdb -in '.$self->o('softmasked_genome_file').' -dbtype nucl -parse_seqids -mask_data '.$self->o('softmasked_genome_file').'.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.$self->o('softmasked_genome_file').';fi',
                        },
-        -rc_name    => '3GB',
+        -rc_name    => '5GB',
         -flow_into => {
           1 => ['create_reheadered_softmasked_file'],
         },
@@ -2353,8 +2584,8 @@ sub pipeline_analyses {
                          output_file => catfile($self->o('output_path'), 'core_bak.sql.gz'),
                          dump_options => $self->o('mysql_dump_options'),
                        },
-        -rc_name    => 'default',
-        -flow_into => { 1 => ['assembly_loading_report','create_genblast_output_db'] },
+        -rc_name    => '2GB',
+        -flow_into => { 1 => ['assembly_loading_report','create_selected_projection_db'] },
       },
 
 
@@ -2399,7 +2630,7 @@ sub pipeline_analyses {
           coord_system_version => '#assembly_name#',
           email => $self->o('email_address'),
         },
-        -rc_name => '4GB',
+        -rc_name => '10GB',
         -flow_into => {
           1 =>['repeatmodeler_coverage'],
         },
@@ -2417,6 +2648,1291 @@ sub pipeline_analyses {
         },
         -rc_name => '4GB',
       },
+
+
+
+########################################################################
+#
+# Projection analyses
+#
+########################################################################
+
+      {
+        -logic_name => 'create_selected_projection_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db   => $self->o('dna_db'),
+          target_db   => $self->o('selected_projection_db'),
+          create_type => 'clone',
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['fan_projection'],
+          'A->1' => ['create_genblast_output_db'],
+        },
+      },
+
+
+
+     {
+        -logic_name => 'fan_projection',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+           '1->A' => ['fan_lastz'],
+           'A->1' => ['create_projection_db'],
+        },
+     },
+
+
+
+      {
+        -logic_name => 'create_projection_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_db'),
+                         create_type => 'clone',
+                         #script_path => $self->o('clone_db_script_path'),
+                         #user_r => $self->o('user_r'),
+                         #user_w => $self->o('user_w'),
+                         #pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['cesar_create_projection_input_ids','wga_create_projection_input_ids'],
+          'A->1' => ['classify_projected_genes'],
+        },
+      },
+
+      {
+        -logic_name => 'wga_create_projection_input_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+          target_db           => $self->o('projection_source_db'),
+          iid_type            => 'feature_id',
+          feature_type        => 'transcript',
+          feature_restriction => 'projection',
+          biotypes            => {
+            'protein_coding' => 1,
+          },
+          batch_size          => 100,
+        },
+        -rc_name    => '4GB',
+        -flow_into => {
+          2 => ['wga_project_transcripts'],
+        },
+      },
+
+
+      {
+        -logic_name => 'wga_project_transcripts',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+        -parameters => {
+          logic_name => 'project_transcripts',
+          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+          source_dna_db         => $self->default_options()->{'projection_source_db'},
+          target_dna_db         => $self->o('dna_db'),
+          source_transcript_db  => $self->default_options()->{'projection_source_db'},
+          target_transcript_db   => $self->o('projection_db'),
+          compara_db            => $self->o('projection_lastz_db'),
+          method_link_type => 'LASTZ_NET',
+          max_exon_readthrough_dist => 15,
+          TRANSCRIPT_FILTER => {
+            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+            PARAMETERS => {
+              -coverage => $self->o('projection_cov'),
+              -percent_id => $self->o('projection_pid'),
+            },
+          },
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+          max_internal_stops => $self->o('projection_max_internal_stops'),
+          timer => '30m',
+        },
+        -flow_into => {
+          -3 => ['wga_failed_projection'],
+        },
+        -rc_name    => 'project_transcripts',
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
+
+
+      {
+        -logic_name => 'wga_failed_projection',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {},
+        -rc_name    => 'default',
+        -can_be_empty  => 1,
+        -failed_job_tolerance => 100,
+      },
+
+      {
+        -logic_name => 'cesar_create_projection_input_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('projection_source_db'),
+                         iid_type => 'feature_id',
+                         batch_size => 20,
+                         feature_type => 'gene',
+                         feature_id_include_non_reference => 0,
+                         #feature_restriction => 'projection',
+                         feature_restriction => 'biotype',
+                         biotypes => {'protein_coding' => 1},
+                       },
+
+        -flow_into => {
+                        2 => ['cesar'],
+                      },
+         -rc_name    => '5GB',
+      },
+
+      {
+        -logic_name => 'cesar',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/cesar_projection/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => '3GB',
+        -analysis_capacity => 50,
+        -max_retry_count => 1,
+        -failed_job_tolerance => 5,
+        -flow_into => {
+                        15 => ['cesar_15'],
+                        30 => ['cesar_30'],
+                        -1 => ['cesar_30'], # some jobs with batches still fail with -1, try cesar_30 in these cases
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_15',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/cesar_projection/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '15', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => '15GB',
+        -analysis_capacity => 50,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -failed_job_tolerance => 5,
+        -flow_into => {
+                        -1 => ['cesar_30'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_30',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/cesar_projection/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '30', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => '30GB',
+        -analysis_capacity => 50,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -failed_job_tolerance => 10,
+        -flow_into => {
+                        -1 => ['cesar_failed_projection'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_failed_projection',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -failed_job_tolerance => 100,
+        -can_be_empty  => 1,
+      },
+
+      {
+        -logic_name => 'classify_projected_genes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+          skip_analysis => $self->o('skip_projection'),
+          classification_type => 'standard',
+          update_gene_biotype => 1,
+          target_db => $self->o('projection_db'),
+        },
+        -rc_name    => '2GB',
+        -flow_into => {
+          1 => ['flag_problematic_projections'],
+#          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
+#          All analysis below create_projection_realign_db need to be uncommented too
+#          '1->A' => ['fix_unaligned_protein_hit_names'],
+#          'A->1' => ['create_projection_realign_db'],
+        },
+      },
+
+      {
+        -logic_name => 'flag_problematic_projections',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
+                                ' -host '.$self->o('projection_db','-host').
+                                ' -port '.$self->o('projection_db','-port').
+                                ' -user_w '.$self->o('projection_db','-user').
+                                ' -pass '.$self->o('projection_db','-pass').
+                                ' -dbname '.$self->o('projection_db','-dbname').
+                                ' -dna_host '.$self->o('dna_db','-host').
+                                ' -dna_port '.$self->o('dna_db','-port').
+                                ' -user_r '.$self->o('dna_db','-user').
+                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
+                       },
+        -rc_name => '2GB',
+        -flow_into  => {
+          1 => ['fix_projection_db_issues'],
+        },
+      },
+
+      {
+        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
+        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
+        # previous analysis
+        -logic_name => 'fix_projection_db_issues',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => $self->o('projection_db'),
+          sql => [
+            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
+            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
+              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
+              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['projection_sanity_checks'],
+        },
+      },
+
+      {
+        -logic_name => 'projection_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+          target_db => $self->o('projection_db'),
+          sanity_check_type => 'gene_db_checks',
+          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
+        },
+        -rc_name    => '4GB',
+        -flow_into => {
+                        1 => ['select_projected_genes'],
+                      },
+      },
+
+      {
+        -logic_name => 'select_projected_genes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
+        -parameters => {
+          wga_db   => $self->o('projection_db'),
+          cesar_db   => $self->o('projection_db'),
+          output_db => $self->o('selected_projection_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => '4GB',
+#        -flow_into => {
+#                        1 => ['cluster_ig_tr_genes'],
+#                      },
+      },
+
+#      When the realign part is fixed, uncomment the whole block
+#      {
+#        -logic_name => 'create_projection_realign_db',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#          source_db => $self->o('dna_db'),
+#          target_db => $self->o('projection_realign_db'),
+#          create_type => 'clone',
+#        },
+#        -rc_name    => 'default',
+#        -flow_into => {
+#          '1->A' => ['create_ids_for_evaluate_projection'],
+#          'A->1' => ['update_realign_biotypes'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'create_ids_for_evaluate_projection',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#        -parameters => {
+#          target_db => $self->o('selected_projection_db'),
+#          iid_type => 'feature_id',
+#          feature_type => 'transcript',
+#          batch_size => 500,
+#        },
+#        -rc_name    => 'default',
+#        -flow_into => {
+#          2 => ['evaluate_coding_transcripts'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'evaluate_coding_transcripts',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionRealignment',
+#        -parameters => {
+#          dna_db => $self->o('dna_db'),
+#          projection_db => $self->o('selected_projection_db'),
+#          projection_source_db => $self->o('projection_source_db'),
+#          projection_realign_db => $self->o('projection_realign_db'),
+#          protein_table_name => $self->o('realign_table_name'),
+#          max_feature_issues => $self->o('max_projection_structural_issues'),
+#        },
+#        -rc_name    => 'default',
+#        -flow_into  => {
+#          2 => ['realign_projection'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'realign_projection',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
+#        -parameters => {
+#          iid_type => 'projection_transcript_id',
+#          sequence_table_name => 'projection_source_sequences',
+#          projection_padding => 0,
+#          dna_db => $self->o('dna_db'),
+#          target_db => $self->o('projection_realign_db'),
+#          projection_db => $self->o('selected_projection_db'),
+#          logic_name => 'genblast',
+#          module => 'HiveGenblast',
+#          genblast_path => $self->o('genblast_path'),
+#          commandline_params => $genblast_params{$self->o('blast_type').'_projection'},
+#          query_seq_dir => $self->o('homology_models_path'),
+#          max_rank => 1,
+#          genblast_pid => $self->o('genblast_pid'),
+#          blast_eval => $self->o('genblast_eval'),
+#          blast_cov => $self->o('genblast_cov'),
+#          timer => '30m',
+#        },
+#        -rc_name    => 'default',
+#        -flow_into  => {
+#          -1 => ['failed_realignments'],
+#          -2 => ['failed_realignments'],
+#          -3 => ['failed_realignments'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'failed_realignments',
+#        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+#        -parameters => {},
+#        -rc_name    => 'default',
+#        -can_be_empty  => 1,
+#      },
+#
+#
+#      {
+#        -logic_name => 'update_realign_biotypes',
+#        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+#        -parameters => {
+#          db_conn    => $self->o('projection_realign_db'),
+#          sql => [
+#            'UPDATE gene SET biotype = "realign"',
+#            'UPDATE transcript SET biotype = "realign"',
+#          ],
+#        },
+#        -rc_name    => 'default',
+#        -flow_into => {
+#          1 => ['classify_realigned_models'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'classify_realigned_models',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+#        -parameters => {
+#          classification_type => 'standard',
+#          update_gene_biotype => 1,
+#          target_db => $self->o('projection_realign_db'),
+#        },
+#        -rc_name    => 'default',
+#        -flow_into => {
+#          1 => ['realign_sanity_checks'],
+#        },
+#      },
+#
+#
+#      {
+#        -logic_name => 'realign_sanity_checks',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+#        -parameters => {
+#                         target_db => $self->o('projection_realign_db'),
+#                         sanity_check_type => 'gene_db_checks',
+#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'realign'},
+#                       },
+#
+#        -rc_name    => '4GB',
+#        -flow_into => {
+#                       1 => ['create_projection_lincrna_db'],
+#                      },
+#      },
+#
+#
+#      {
+#        -logic_name => 'create_projection_lincrna_db',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#                         source_db => $self->o('dna_db'),
+#                         target_db => $self->o('projection_lincrna_db'),
+#                         create_type => 'clone',
+#                       },
+#        -flow_into => {
+#                       1 => ['create_projection_pseudogene_db'],
+#                      },
+#      },
+#
+#
+#      {
+#        -logic_name => 'create_projection_pseudogene_db',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#                         source_db => $self->o('dna_db'),
+#                         target_db => $self->o('projection_pseudogene_db'),
+#                         create_type => 'clone',
+#                       },
+#
+#        -flow_into => {
+#                        1 => ['generate_projection_lincrna_ids','generate_projection_pseudogene_ids','generate_projection_ig_tr_ids'],
+#                      },
+#      },
+#
+#
+#      {
+#        -logic_name => 'generate_projection_lincrna_ids',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#        -parameters => {
+#                         target_db => $self->o('projection_source_db'),
+#                         iid_type => 'feature_id',
+#                         feature_type => 'transcript',
+#                         feature_restriction => 'biotype',
+#                         biotypes => {
+#                                       'lincRNA' => 1,
+#                                     },
+#                         batch_size => 100,
+#        },
+#        -flow_into => {
+#                       '2->A' => ['run_project_lincrnas'],
+#                       'A->1' => ['project_lincrna_sanity_checks'],
+#                      },
+#        -rc_name    => 'default',
+#      },
+#
+#
+#      {
+#        -logic_name => 'run_project_lincrnas',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+#        -parameters => {
+#                         'logic_name'                 => 'project_lincrna',
+#                         'source_dna_db'              => $self->o('projection_source_db'),
+#                         'target_dna_db'              => $self->o('dna_db'),
+#                         'source_db'                  => $self->o('projection_source_db'),
+#                         'target_db'                  => $self->o('projection_lincrna_db'),
+#                         'compara_db'                 => $self->o('projection_lastz_db'),
+#                         'method_link_type'           => 'LASTZ_NET',
+#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+#                         'exonerate_path'             => $self->o('exonerate_path'),
+#                         'exonerate_coverage'         => $self->o('projection_lincrna_coverage'),
+#                         'exonerate_percent_id'       => $self->o('projection_lincrna_percent_id'),
+#                         'calculate_coverage_and_pid' => 0,
+#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_dna')},
+#			},
+#        -rc_name    => 'default',
+#        -hive_capacity => 900,
+#      },
+#
+#
+#      {
+#        -logic_name => 'project_lincrna_sanity_checks',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+#        -parameters => {
+#                         target_db => $self->o('projection_lincrna_db'),
+#                         sanity_check_type => 'gene_db_checks',
+#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_lincrna'},
+#                       },
+#        -rc_name    => '4GB',
+#      },
+#
+#
+#      {
+#        -logic_name => 'generate_projection_pseudogene_ids',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#        -parameters => {
+#                         target_db => $self->o('projection_source_db'),
+#                         iid_type => 'feature_id',
+#                         feature_type => 'transcript',
+#                         feature_restriction => 'biotype',
+#                         biotypes => {
+#                                       'pseudogene' => 1,
+#                                       'processed_pseudogene' => 1,
+#                                       'unprocessed_pseudogene' => 1,
+#                                     },
+#                         batch_size => 100,
+#        },
+#        -flow_into => {
+#                       '2->A' => ['run_project_pseudogenes'],
+#                       'A->1' => ['project_pseudogene_sanity_checks'],
+#        },
+#        -rc_name    => 'default',
+#      },
+#
+#
+#      {
+#        -logic_name => 'run_project_pseudogenes',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+#        -parameters => {
+#                         'logic_name'                 => 'project_pseudogene',
+#                         'source_dna_db'              => $self->o('projection_source_db'),
+#                         'target_dna_db'              => $self->o('dna_db'),
+#                         'source_db'                  => $self->o('projection_source_db'),
+#                         'target_db'                  => $self->o('projection_pseudogene_db'),
+#                         'compara_db'                 => $self->o('projection_lastz_db'),
+#                         'method_link_type'           => 'LASTZ_NET',
+#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+#                         'exonerate_path'             => $self->o('exonerate_path'),
+#                         'exonerate_coverage'         => $self->o('projection_pseudogene_coverage'),
+#                         'exonerate_percent_id'       => $self->o('projection_pseudogene_percent_id'),
+#                         'calculate_coverage_and_pid' => 0,
+#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_pseudogene')},
+#			},
+#        -rc_name    => 'default',
+#        -hive_capacity => 900,
+#      },
+#
+#
+#      {
+#        -logic_name => 'project_pseudogene_sanity_checks',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+#        -parameters => {
+#                         target_db => $self->o('projection_pseudogene_db'),
+#                         sanity_check_type => 'gene_db_checks',
+#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_pseudogene'},
+#                       },
+#        -rc_name    => '4GB',
+#      },
+#
+#
+#      {
+#        -logic_name => 'generate_projection_ig_tr_ids',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#        -parameters => {
+#                         target_db => $self->o('projection_source_db'),
+#                         iid_type => 'feature_id',
+#                         feature_type => 'transcript',
+#                         feature_restriction => 'biotype',
+#                         biotypes => {
+#                                       'IG_V_gene' => 1,
+#                                       'IG_D_gene' => 1,
+#                                       'IG_J_gene' => 1,
+#                                       'IG_C_gene' => 1,
+#                                       'TR_V_gene' => 1,
+#                                       'TR_J_gene' => 1,
+#                                       'TR_D_gene' => 1,
+#                                       'TR_C_gene' => 1,
+#                                     },
+#                         batch_size => 100,
+#        },
+#        -flow_into => {
+#                       '2->A' => ['run_project_ig_tr'],
+#                       'A->1' => ['project_ig_tr_sanity_checks'],
+#        },
+#        -rc_name    => 'default',
+#      },
+#
+#
+#      {
+#        -logic_name => 'run_project_ig_tr',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+#        -parameters => {
+#                         'logic_name'                 => 'project_ig_tr',
+#                         'source_dna_db'              => $self->o('projection_source_db'),
+#                         'target_dna_db'              => $self->o('dna_db'),
+#                         'source_db'                  => $self->o('projection_source_db'),
+#                         'target_db'                  => $self->o('ig_tr_db'),
+#                         'compara_db'                 => $self->o('projection_lastz_db'),
+#                         'method_link_type'           => 'LASTZ_NET',
+#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+#                         'exonerate_path'             => $self->o('exonerate_path'),
+#                         'exonerate_coverage'         => $self->o('projection_ig_tr_coverage'),
+#                         'exonerate_percent_id'       => $self->o('projection_ig_tr_percent_id'),
+#                         'calculate_coverage_and_pid' => 1,
+#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_ig_tr_protein')},
+#			},
+#        -rc_name    => 'default',
+#        -hive_capacity => 900,
+#      },
+#
+#
+#      {
+#        -logic_name => 'project_ig_tr_sanity_checks',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+#        -parameters => {
+#                         target_db => $self->o('ig_tr_db'),
+#                         sanity_check_type => 'gene_db_checks',
+#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_ig_tr'},
+#                       },
+#        -rc_name    => '2GB',
+#      },
+
+
+
+######################################################################################
+#
+# LastZ pipeline
+#
+######################################################################################
+
+	    {
+        -logic_name => 'fan_lastz',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_lastz#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => '2GB_lastz',
+        -flow_into  => {
+          '1' => ['setup_lastz'],
+        },
+      },
+
+
+
+
+	    {
+        -logic_name => 'setup_lastz',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::LastZSetup',
+        -parameters => {
+                         compara_genome_db_update_path => $self->o('compara_genome_db_update_path'),
+                         compara_mlss_script_path => $self->o('compara_mlss_script_path'),
+                         compara_mlss_reg_conf_path => $self->o('compara_mlss_reg_conf_path'),
+                         compara_db => $self->o('compara_db'),
+                         projection_source_db => $self->o('projection_source_db'),
+                         target_db => $self->o('dna_db'),
+                         pipeline_db => $self->o('pipeline_db'),
+                         output_path => $self->o('output_path'),
+                         compara_db_url => 'mysql://'.$self->o('user').':'.$self->o('password').'@'.$self->o('compara_db_server').':'.$self->o('compara_db_port').'/'.$self->o('compara_db_name'),
+                       },
+
+        -rc_name => '2GB_lastz',
+             -flow_into      => {
+                             1 => {'get_species_list' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
+                           },
+       },
+
+
+	    {
+         -logic_name    => 'get_species_list',
+         -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ParsePairAlignerConf',
+         -parameters    => {
+                            'master_db' => $self->o('compara_master'),
+                            'get_species_list' => 1,
+                            'core_dbs' => undef,
+                          },
+
+         -rc_name => '2GB_lastz',
+         -flow_into      => {
+                              1 => {'populate_new_database' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
+                            },
+       },
+
+
+	    {
+         -logic_name => 'populate_new_database',
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::PopulateNewDatabase',
+         -parameters    => {
+                             'program'        => $self->o('compara_populate_new_database_exe'),
+                             'mlss_id_list'   => undef,
+                             'collection'     => $self->o('compara_collection'),
+                             'master_db'      => $self->o('compara_master'),
+                             'only_cellular_component' => $self->o('only_cellular_component'),
+                           },
+         -flow_into => {
+           1 => {'add_method_link_species_link_tag' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
+         },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+        -logic_name => 'add_method_link_species_link_tag',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('pipeline_db'),
+          sql => [
+            'INSERT INTO method_link_species_set_tag VALUES (#mlss_id#,"reference_species","'.$self->o('compara_ref_species').'")',
+          ],
+        },
+        -rc_name    => '2GB_lastz',
+        -flow_into => {
+          1 => {'parse_pair_aligner_conf' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}}
+        },
+      },
+
+
+	    {
+         -logic_name    => 'parse_pair_aligner_conf',
+         -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ParsePairAlignerConf',
+         -parameters    => {
+                             'conf_file' => $self->o('compara_conf_file'),
+                             'ref_species' => $self->o('compara_ref_species'),
+                             'non_ref_species' => $self->o('compara_non_ref_species'),
+                             'dump_dir' => $self->o('compara_dump_dir'),
+                             'default_chunks' => $self->o('default_chunks'),
+                             'default_pair_aligner' => $self->o('pair_aligner_method_link'),
+                             'default_parameters' => $self->o('pair_aligner_options'),
+                             'default_chain_output' => $self->o('chain_output_method_link'),
+                             'default_net_output' => $self->o('net_output_method_link'),
+                             'default_chain_input' => $self->o('chain_input_method_link'),
+                             'default_net_input' => $self->o('net_input_method_link'),
+                             'net_ref_species' => $self->o('net_ref_species'),
+                             'mlss_id_list' => $self->o('mlss_id_list'),
+                             'collection' => $self->o('compara_collection'),
+                             'master_db' => $self->o('compara_master'),
+                             'do_pairwise_gabs' => $self->o('do_pairwise_gabs'), #healthcheck options
+                             'do_compare_to_previous_db' => $self->o('do_compare_to_previous_db'), #healthcheck options
+                             'bidirectional' => $self->o('bidirectional'),
+                           },
+         -flow_into => {
+                         1 => [ 'create_pair_aligner_jobs'],
+                         2 => [ 'chunk_and_group_dna' ],
+                         3 => [ 'create_filter_duplicates_jobs' ],
+                         4 => [ 'no_chunk_and_group_dna' ],
+                         5 => [ 'create_alignment_chains_jobs' ],
+                         6 => [ 'create_alignment_nets_jobs' ],
+                        10 => [ 'create_filter_duplicates_net_jobs' ],
+                         7 => [ 'pairaligner_stats' ],
+                         8 => [ 'healthcheck' ],
+                       },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'chunk_and_group_dna',
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ChunkAndGroupDna',
+         -parameters => {
+                          'only_cellular_component' => $self->o('only_cellular_component'),
+                          'mix_cellular_components' => $self->o('mix_cellular_components'),
+                        },
+         -flow_into => {
+           2 => [ 'store_sequence' ],
+         },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'store_sequence',
+         -hive_capacity => 100,
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::StoreSequence',
+         -parameters => {
+           'dump_min_chunkset_size' => $self->o('dump_min_chunkset_size'),
+           'dump_min_chunk_size' => $self->o('dump_min_chunk_size'),
+         },
+         -flow_into => {
+           -1 => [ 'store_sequence_again' ],
+         },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'store_sequence_again',
+         -hive_capacity => 50,
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::StoreSequence',
+         -parameters => {
+           'dump_min_chunkset_size' => $self->o('dump_min_chunkset_size'),
+           'dump_min_chunk_size' => $self->o('dump_min_chunk_size'),
+          },
+          -can_be_empty  => 1,
+          -rc_name => '4GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'create_pair_aligner_jobs',  #factory
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreatePairAlignerJobs',
+         -parameters => {
+                          'mix_cellular_components' => $self->o('mix_cellular_components'),
+                        },
+         -hive_capacity => 10,
+         -wait_for => [ 'store_sequence', 'store_sequence_again', 'chunk_and_group_dna'  ],
+         -flow_into => {
+                         1 => [ 'check_no_partial_gabs' ],
+                         2 => [ $self->o('pair_aligner_logic_name')  ],
+                       },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => $self->o('pair_aligner_logic_name'),
+         -module     => $self->o('pair_aligner_module'),
+         -analysis_capacity => $self->o('pair_aligner_analysis_capacity'),
+         -batch_size => $self->o('pair_aligner_batch_size'),
+         -parameters => {
+                          'pair_aligner_exe' => $self->o('pair_aligner_exe'),
+                        },
+         -wait_for  => [ 'create_pair_aligner_jobs'  ],
+         -flow_into => {
+                         -1 => [ $self->o('pair_aligner_logic_name') . '_himem1' ],  # MEMLIMIT
+                       },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => $self->o('pair_aligner_logic_name') . "_himem1",
+         -module     => $self->o('pair_aligner_module'),
+         -analysis_capacity => $self->o('pair_aligner_analysis_capacity'),
+         -parameters => {
+                          'pair_aligner_exe' => $self->o('pair_aligner_exe'),
+                        },
+         -wait_for   => [ 'create_pair_aligner_jobs'  ],
+         -batch_size => $self->o('pair_aligner_batch_size'),
+         -can_be_empty  => 1,
+         -rc_name => '8GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'check_no_partial_gabs',
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SqlHealthChecks',
+         -parameters => {
+           'mode'          => 'gab_inconsistencies',
+         },
+         -wait_for =>  [ $self->o('pair_aligner_logic_name'), $self->o('pair_aligner_logic_name') . "_himem1" ],
+         -flow_into => {
+           1 => [ 'update_max_alignment_length_before_FD' ],
+         },
+       },
+
+
+	    {
+         -logic_name => 'update_max_alignment_length_before_FD',
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
+         -parameters => {
+           'quick' => $self->o('quick'),
+         },
+         -flow_into => {
+           1 => [ 'update_max_alignment_length_after_FD' ],
+         },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name => 'create_filter_duplicates_jobs', #factory
+         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateFilterDuplicatesJobs',
+         -parameters => { },
+         -wait_for =>  [ 'update_max_alignment_length_before_FD' ],
+         -flow_into => {
+           2 => { 'filter_duplicates' => INPUT_PLUS() },
+         },
+         -rc_name => '2GB_lastz',
+       },
+
+
+	    {
+         -logic_name   => 'filter_duplicates',
+         -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::FilterDuplicates',
+         -parameters    => {
+           'window_size' => $self->o('compara_window_size')
+         },
+         -hive_capacity => $self->o('filter_duplicates_hive_capacity'),
+         -batch_size    => $self->o('filter_duplicates_batch_size'),
+         -can_be_empty  => 1,
+         -flow_into => {
+                         -1 => [ 'filter_duplicates_himem' ], # MEMLIMIT
+         },
+         -rc_name => $self->o('filter_duplicates_rc_name'),
+       },
+
+
+	    {
+        -logic_name   => 'filter_duplicates_himem',
+        -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::FilterDuplicates',
+        -parameters    => {
+                            'window_size' => $self->o('compara_window_size')
+         },
+         -hive_capacity => $self->o('filter_duplicates_hive_capacity'),
+         -batch_size    => $self->o('filter_duplicates_batch_size'),
+         -can_be_empty  => 1,
+         -rc_name => $self->o('filter_duplicates_himem_rc_name'),
+      },
+
+
+	    {
+        -logic_name => 'update_max_alignment_length_after_FD',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
+        -parameters => {
+          'quick' => $self->o('quick'),
+        },
+        -wait_for =>  [ 'create_filter_duplicates_jobs', 'filter_duplicates', 'filter_duplicates_himem' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'no_chunk_and_group_dna',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ChunkAndGroupDna',
+        -parameters => {
+          'only_cellular_component' => $self->o('only_cellular_component'),
+          'mix_cellular_components' => $self->o('mix_cellular_components'),
+        },
+        -flow_into => {
+          2 => [ 'dump_large_nib_for_chains' ],
+        },
+        -wait_for  => ['update_max_alignment_length_after_FD' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'dump_large_nib_for_chains',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection',
+        -parameters => {
+          'faToNib_exe' => $self->o('faToNib_exe'),
+          'dump_min_nib_size' => $self->o('dump_min_nib_size'),
+          'overwrite'=>1,
+        },
+        -hive_capacity => 10,
+        -flow_into => {
+          -1 => [ 'dump_large_nib_for_chains_himem' ],  # MEMLIMIT
+        },
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'dump_large_nib_for_chains_himem',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection',
+        -parameters => {
+                         'faToNib_exe' => $self->o('faToNib_exe'),
+                         'dump_min_nib_size' => $self->o('dump_min_nib_size'),
+                         'overwrite'=>1,
+        },
+        -hive_capacity => 10,
+        -can_be_empty  => 1,
+        -rc_name => '8GB_lastz',
+      },
+
+
+
+	    {
+        -logic_name => 'create_alignment_chains_jobs',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateAlignmentChainsJobs',
+        -parameters => { },
+        -flow_into => {
+                        1 => [ 'remove_inconsistencies_after_chain' ],
+                        2 => [ 'alignment_chains' ],
+        },
+        -wait_for => [ 'no_chunk_and_group_dna', 'dump_large_nib_for_chains', 'dump_large_nib_for_chains_himem' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'alignment_chains',
+        -hive_capacity => $self->o('chain_hive_capacity'),
+        -batch_size => $self->o('chain_batch_size'),
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
+        -parameters => $self->o('chain_parameters'),
+        -max_retry_count => 10,
+        -flow_into => {
+          -1 => [ 'alignment_chains_himem' ],  # MEMLIMIT
+        },
+        -wait_for   => [ 'create_alignment_chains_jobs' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'alignment_chains_himem',
+        -hive_capacity => $self->o('chain_hive_capacity'),
+        -batch_size => 1,
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
+        -parameters => $self->o('chain_parameters'),
+        -can_be_empty  => 1,
+        -max_retry_count => 10,
+        -rc_name => '8GB_lastz',
+        -flow_into => {
+          -1 => [ 'alignment_chains_super_himem' ],  # MEMLIMIT
+         },
+         -wait_for => ['alignment_chains'],
+         -can_be_empty  => 1,
+      },
+
+
+	    {
+        -logic_name => 'alignment_chains_super_himem',
+        -hive_capacity => $self->o('chain_hive_capacity'),
+        -batch_size => 1,
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
+        -parameters => $self->o('chain_parameters'),
+        -can_be_empty  => 1,
+        -max_retry_count => 10,
+        -rc_name => '15GB_lastz',
+        -wait_for => ['alignment_chains'],
+         -can_be_empty  => 1,
+      },
+
+	    {
+        -logic_name => 'remove_inconsistencies_after_chain',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::RemoveAlignmentDataInconsistencies',
+        -flow_into => {
+          1 => [ 'update_max_alignment_length_after_chain' ],
+        },
+        -wait_for =>  [ 'alignment_chains', 'alignment_chains_himem', 'alignment_chains_super_himem' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'update_max_alignment_length_after_chain',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
+        -parameters => {
+          'quick' => $self->o('quick'),
+        },
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'create_alignment_nets_jobs',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateAlignmentNetsJobs',
+        -parameters => { },
+        -flow_into => {
+          1 => [ 'remove_inconsistencies_after_net' ],
+          2 => [ 'alignment_nets' ],
+        },
+        -wait_for => [ 'update_max_alignment_length_after_chain', 'remove_inconsistencies_after_chain' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'alignment_nets',
+        -hive_capacity => $self->o('net_hive_capacity'),
+        -batch_size => $self->o('net_batch_size'),
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentNets',
+        -parameters => $self->o('net_parameters'),
+        -flow_into => {
+          -1 => [ 'alignment_nets_himem' ],  # MEMLIMIT
+         },
+         -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'alignment_nets_himem',
+        -hive_capacity => $self->o('net_hive_capacity'),
+        -batch_size => $self->o('net_batch_size'),
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentNets',
+        -parameters => $self->o('net_parameters'),
+        -can_be_empty => 1,
+        -flow_into => {
+          -1 => [ 'alignment_nets_hugemem' ],  # MEMLIMIT
+        },
+        -rc_name => '4GB_lastz',
+      },
+
+
+	    {
+        -logic_name     => 'alignment_nets_hugemem',
+        -hive_capacity  => $self->o('net_hive_capacity'),
+        -batch_size     => $self->o('net_batch_size'),
+        -module         => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentNets',
+        -parameters     => $self->o('net_parameters'),
+        -can_be_empty   => 1,
+        -rc_name        => '8GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'remove_inconsistencies_after_net',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::RemoveAlignmentDataInconsistencies',
+        -flow_into => {
+          1 => [ 'update_max_alignment_length_after_net' ],
+        },
+        -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem', 'alignment_nets_hugemem', 'create_alignment_nets_jobs' ],    # Needed because of bi-directional netting: 2 jobs in create_alignment_nets_jobs can result in 1 job here
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'create_filter_duplicates_net_jobs', #factory
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateFilterDuplicatesJobs',
+        -parameters => { },
+        -wait_for =>  [ 'remove_inconsistencies_after_net' ],
+        -flow_into => {
+          2 => { 'filter_duplicates_net' => INPUT_PLUS() },
+        },
+        -can_be_empty  => 1,
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name   => 'filter_duplicates_net',
+        -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::FilterDuplicates',
+        -parameters    => {
+          'window_size' => $self->o('compara_window_size'),
+          'filter_duplicates_net' => 1,
+        },
+        -hive_capacity => $self->o('filter_duplicates_hive_capacity'),
+        -batch_size    => $self->o('filter_duplicates_batch_size'),
+        -flow_into => {
+          -1 => [ 'filter_duplicates_net_himem' ], # MEMLIMIT
+        },
+        -can_be_empty  => 1,
+        -rc_name => $self->o('filter_duplicates_rc_name'),
+      },
+
+
+	    {
+        -logic_name   => 'filter_duplicates_net_himem',
+        -module        => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::FilterDuplicates',
+        -parameters    => {
+          'window_size' => $self->o('compara_window_size'),
+          'filter_duplicates_net' => 1,
+        },
+       -hive_capacity => $self->o('filter_duplicates_hive_capacity'),
+       -batch_size    => $self->o('filter_duplicates_batch_size'),
+       -can_be_empty  => 1,
+       -rc_name => $self->o('filter_duplicates_himem_rc_name'),
+      },
+
+
+	    {
+        -logic_name => 'update_max_alignment_length_after_net',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
+        -rc_name => '2GB_lastz',
+        -wait_for =>  [ 'create_filter_duplicates_net_jobs', 'filter_duplicates_net', 'filter_duplicates_net_himem' ],
+        -flow_into => [ 'set_internal_ids_collection' ],
+      },
+
+	    {
+        -logic_name => 'set_internal_ids_collection',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SetInternalIdsCollection',
+        -parameters => {
+          'skip' => $self->o('patch_alignments'),
+         },
+         -flow_into => {
+           2 => [ 'set_internal_ids_slow' ],
+          },
+         -analysis_capacity => 1,
+      },
+
+
+	    {
+        -logic_name => 'set_internal_ids_slow',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SetInternalIdsSlow',
+        -analysis_capacity => 1,
+        -rc_name => '8GB_lastz',
+      },
+
+	    {
+        -logic_name => 'healthcheck',
+        -module => 'Bio::EnsEMBL::Compara::RunnableDB::HealthCheck',
+        -parameters => {
+          'previous_db' => $self->o('previous_db'),
+          'ensembl_release' => $self->o('ensembl_release'),
+          'prev_release' => $self->o('prev_release'),
+          'max_percent_diff' => $self->o('patch_alignments') ? $self->o('max_percent_diff_patches') : $self->o('max_percent_diff'),
+        },
+        -wait_for => [ 'set_internal_ids_collection' ],
+        -rc_name => '2GB_lastz',
+      },
+
+
+	    {
+        -logic_name => 'pairaligner_stats',
+        -module => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::PairAlignerStats',
+        -parameters => {
+          'skip' => $self->o('skip_pairaligner_stats'),
+          'dump_features' => $self->o('dump_features_exe'),
+          'compare_beds' => $self->o('compare_beds_exe'),
+          'create_pair_aligner_page' => $self->o('create_pair_aligner_page_exe'),
+          'bed_dir' => $self->o('compara_bed_dir'),
+          'ensembl_release' => $self->o('ensembl_release'),
+          'output_dir' => $self->o('compara_feature_dir'),
+        },
+        -wait_for =>  [ 'healthcheck' ],
+        -rc_name => '2GB_lastz',
+      },
+
 
 
 ######################################################################################
@@ -2513,7 +4029,7 @@ sub pipeline_analyses {
           biotype => 'seleno_other',
           missmatch_allowed => 10,
         },
-        -rc_name          => '2GB',
+        -rc_name          => '3GB',
       },
 
 
@@ -3534,7 +5050,7 @@ sub pipeline_analyses {
                             $self->o('user_r') . " " .
                             $self->o('ncrna_dir').' blastmirna',
                       },
-       -rc_name => 'filter',
+       -rc_name => '6GB',
       },
 
 
@@ -3614,7 +5130,7 @@ sub pipeline_analyses {
                     output_dir => $self->o('output_path'),
         },
         -hive_capacity => 900,
-        -rc_name    => 'transcript_finalisation',
+        -rc_name    => '5GB',
         -flow_into => { '-1' => 'run_cmsearch_highmem', '-2' => 'run_cmsearch_highmem'},
       },
 
@@ -4477,14 +5993,14 @@ sub pipeline_analyses {
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => {'bam2introns_40GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -1 => {'bam2introns_30GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
           -2 => ['failed_bam2introns_jobs'],
           -3 => ['failed_bam2introns_jobs'],
         },
       },
 
       {
-        -logic_name => 'bam2introns_40GB',
+        -logic_name => 'bam2introns_30GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
         -can_be_empty => 1,
         -parameters => {
@@ -4508,7 +6024,7 @@ sub pipeline_analyses {
           genome_file => $self->o('faidx_softmasked_genome_file'),
           timer => '30m',
         },
-        -rc_name    => '40GB',
+        -rc_name    => '30GB',
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -5155,7 +6671,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into  => {
           '1->A' => ['fan_long_read'],
-          'A->1' => ['create_projection_coding_db'],
+          'A->1' => ['cluster_ig_tr_genes'],
         },
       },
 
@@ -5283,6 +6799,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
                          genome_file => $self->o('faidx_genome_file'),
+                         long_read_summary_file => $self->o('long_read_summary_file'),
+                         long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),
                          paftools_path => $self->o('paftools_path'),
@@ -5302,6 +6820,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
                          genome_file => $self->o('faidx_genome_file'),
+                         long_read_summary_file => $self->o('long_read_summary_file'),
+                         long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),
                          paftools_path => $self->o('paftools_path'),
@@ -5324,25 +6844,25 @@ sub pipeline_analyses {
          -rc_name => 'default',
          -max_retry_count => 0,
          -flow_into => {
-           1 => ['create_long_read_blast_db'],
+           1 => ['generate_collapse_jobs'],
          }
       },
 
 
-      {
-        -logic_name => 'create_long_read_blast_db',
-        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db => $self->o('dna_db'),
-          target_db => $self->o('long_read_blast_db'),
-          create_type => 'clone',
-        },
-        -rc_name => 'default',
-        -max_retry_count => 0,
-        -flow_into => {
-          1 => ['generate_collapse_jobs'],
-        }
-      },
+#      {
+#        -logic_name => 'create_long_read_blast_db',
+#        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#          source_db => $self->o('dna_db'),
+#          target_db => $self->o('long_read_blast_db'),
+#          create_type => 'clone',
+#        },
+#        -rc_name => 'default',
+#        -max_retry_count => 0,
+#        -flow_into => {
+#          1 => ['generate_collapse_jobs'],
+#        }
+#      },
 
 
       {
@@ -5445,9 +6965,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
           input_db => $self->o('long_read_collapse_db'),
-          output_db => $self->o('long_read_blast_db'),
+          output_db => $self->o('long_read_final_db'),
           source_db => $self->o('long_read_collapse_db'),
-          target_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
           dna_db => $self->o('dna_db'),
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
@@ -5458,7 +6978,7 @@ sub pipeline_analyses {
         -rc_name => 'blast',
         -flow_into => {
           -1 => ['blast_long_read_10G'],
-          1 => ['intron_check'],
+#          1 => ['intron_check'],
         },
       },
 
@@ -5468,10 +6988,10 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
           input_db => $self->o('long_read_collapse_db'),
-          output_db => $self->o('long_read_blast_db'),
+          output_db => $self->o('long_read_final_db'),
           dna_db => $self->o('dna_db'),
           source_db => $self->o('long_read_collapse_db'),
-          target_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
@@ -5479,929 +6999,52 @@ sub pipeline_analyses {
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40 -seg no',
         },
         -rc_name => 'blast10GB',
-        -flow_into => {
-          1 => ['intron_check'],
-        },
+#        -flow_into => {
+#          1 => ['intron_check'],
+#        },
       },
 
 
-      {
-        -logic_name => 'intron_check',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          source_db => $self->o('long_read_blast_db'),
-          target_db => $self->o('long_read_final_db'),
-          intron_db => $self->o('rnaseq_refine_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '2GB',
-        -flow_into => {
-          1 => ['intron_check_10GB'],
-        },
-      },
+#      {
+#        -logic_name => 'intron_check',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+#        -parameters => {
+#          source_db => $self->o('long_read_blast_db'),
+#          target_db => $self->o('long_read_final_db'),
+#          intron_db => $self->o('rnaseq_refine_db'),
+#          dna_db => $self->o('dna_db'),
+#        },
+#        -rc_name    => '2GB',
+#        -flow_into => {
+#          1 => ['intron_check_10GB'],
+#        },
+#      },
 
 
-      {
-        -logic_name => 'intron_check_10GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          source_db => $self->o('long_read_blast_db'),
-          target_db => $self->o('long_read_final_db'),
-          intron_db => $self->o('rnaseq_refine_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '10GB',
-      },
+#      {
+#        -logic_name => 'intron_check_10GB',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+#        -parameters => {
+#          source_db => $self->o('long_read_blast_db'),
+#          target_db => $self->o('long_read_final_db'),
+#          intron_db => $self->o('rnaseq_refine_db'),
+#          dna_db => $self->o('dna_db'),
+#        },
+#        -rc_name    => '10GB',
+#      },
 
 
       {
         -logic_name => 'classify_long_read_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-          classification_type => 'standard',
+          classification_type => 'long_read',
           update_gene_biotype => 1,
           target_db => $self->o('long_read_final_db'),
         },
         -rc_name    => 'default',
       },
 
-########################################################################
-#
-# Projection analyses
-#
-########################################################################
-      {
-        -logic_name => 'create_projection_coding_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db   => $self->o('dna_db'),
-          target_db   => $self->o('projection_coding_db'),
-          create_type => 'clone',
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          1 => ['create_projection_output_db'],
-        },
-      },
-
-      {
-        -logic_name => 'create_projection_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db   => $self->o('dna_db'),
-          target_db   => $self->o('projection_output_db'),
-          create_type => 'clone',
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          1 => ['cesar_create_output_db'],
-        },
-      },
-
-      {
-        -logic_name => 'cesar_create_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('cesar_projection_coding_db'),
-                         create_type => 'clone',
-                         #script_path => $self->o('clone_db_script_path'),
-                         #user_r => $self->o('user_r'),
-                         #user_w => $self->o('user_w'),
-                         #pass_w => $self->o('password'),
-                       },
-        -rc_name    => '3GB',
-        -flow_into  => {
-          '1->A' => ['run_projections'],
-          'A->1' => ['select_projected_genes'],
-        },
-      },
-
-      {
-        -logic_name => 'run_projections',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1' => ['fan_projection','cesar_fan_projection'],
-        },
-      },
-
-      {
-        -logic_name => 'fan_projection',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1->A' => ['create_projection_coding_input_ids'],
-          'A->1' => ['classify_projection_coding_models'],
-        },
-      },
-
-      {
-        -logic_name => 'cesar_fan_projection',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1->A' => ['cesar_create_projection_input_ids'],
-          'A->1' => ['cesar_classify_projection_coding_models'],
-        },
-      },
-
-
-      {
-        -logic_name => 'create_projection_coding_input_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-          target_db           => $self->o('projection_source_db'),
-          iid_type            => 'feature_id',
-          feature_type        => 'transcript',
-          feature_restriction => 'projection',
-          biotypes            => {
-            'protein_coding' => 1,
-          },
-          batch_size          => 100,
-        },
-        -rc_name    => '4GB',
-        -flow_into => {
-          2 => ['project_coding_transcripts'],
-        },
-      },
-
-
-      {
-        -logic_name => 'project_coding_transcripts',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
-        -parameters => {
-          logic_name => 'project_transcripts',
-          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
-          source_dna_db         => $self->default_options()->{'projection_source_db'},
-          target_dna_db         => $self->o('dna_db'),
-          source_transcript_db  => $self->default_options()->{'projection_source_db'},
-          target_transcript_db   => $self->o('projection_coding_db'),
-          compara_db            => $self->o('projection_lastz_db'),
-          method_link_type => 'LASTZ_NET',
-          max_exon_readthrough_dist => 15,
-          TRANSCRIPT_FILTER => {
-            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-            PARAMETERS => {
-              -coverage => $self->o('projection_cov'),
-              -percent_id => $self->o('projection_pid'),
-            },
-          },
-          iid_type => 'feature_id',
-          feature_type => 'transcript',
-          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
-          max_internal_stops => $self->o('projection_max_internal_stops'),
-          timer => '30m',
-        },
-        -flow_into => {
-          -3 => ['failed_projection_coding_jobs'],
-        },
-        -rc_name    => 'project_transcripts',
-        -batch_size => 100,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-      },
-
-
-      {
-        -logic_name => 'failed_projection_coding_jobs',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
-        -rc_name    => 'default',
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 100,
-      },
-
-
-      {
-        -logic_name => 'classify_projection_coding_models',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
-        -parameters => {
-          skip_analysis => $self->o('skip_projection'),
-          classification_type => 'standard',
-          update_gene_biotype => 1,
-          target_db => $self->o('projection_coding_db'),
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['flag_problematic_projections'],
-#          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
-#          All analysis below create_projection_realign_db need to be uncommented too
-#          '1->A' => ['fix_unaligned_protein_hit_names'],
-#          'A->1' => ['create_projection_realign_db'],
-        },
-      },
-
-
-      {
-        -logic_name => 'flag_problematic_projections',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
-                                ' -host '.$self->o('projection_coding_db','-host').
-                                ' -port '.$self->o('projection_coding_db','-port').
-                                ' -user_w '.$self->o('projection_coding_db','-user').
-                                ' -pass '.$self->o('projection_coding_db','-pass').
-                                ' -dbname '.$self->o('projection_coding_db','-dbname').
-                                ' -dna_host '.$self->o('dna_db','-host').
-                                ' -dna_port '.$self->o('dna_db','-port').
-                                ' -user_r '.$self->o('dna_db','-user').
-                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
-                       },
-        -rc_name => 'default',
-        -flow_into  => {
-          1 => ['fix_projection_db_issues'],
-        },
-      },
-
-
-      {
-        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
-        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
-        # previous analysis
-        -logic_name => 'fix_projection_db_issues',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn    => $self->o('projection_coding_db'),
-          sql => [
-            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
-            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['projection_coding_sanity_checks'],
-        },
-      },
-
-
-      {
-        -logic_name => 'projection_coding_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-          target_db => $self->o('projection_coding_db'),
-          sanity_check_type => 'gene_db_checks',
-          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
-        },
-        -rc_name    => '4GB',
-      },
-
-      {
-        -logic_name => 'cesar_create_projection_input_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('projection_source_db'),
-                         iid_type => 'feature_id',
-                         batch_size => 20,
-                         feature_type => 'gene',
-                         feature_id_include_non_reference => 0,
-                         #feature_restriction => 'projection',
-                         feature_restriction => 'biotype',
-                         biotypes => {'protein_coding' => 1},
-                       },
-
-        -flow_into => {
-                        2 => ['cesar'],
-                      },
-         -rc_name    => '3GB',
-      },
-
-      {
-        -logic_name => 'cesar',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => 'default',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -failed_job_tolerance => 5,
-        -flow_into => {
-                        10 => ['cesar_10'],
-                        20 => ['cesar_20'],
-                        25 => ['cesar_25'],
-                        30 => ['cesar_30'],
-                        -1 => ['cesar_30'], # some jobs with batches still fail with -1, try cesar_30 in these cases
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_10',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '10GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 5,
-        -flow_into => {
-                        -1 => ['cesar_20'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_20',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '20GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 5,
-        -flow_into => {
-                        -1 => ['cesar_25'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_25',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '25', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '25GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 10,
-        -flow_into => {
-                        -1 => ['cesar_30'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_30',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '30', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '30GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 10,
-        -flow_into => {
-                        -1 => ['failed_cesar_himem'],
-                      },
-      },
-
-      {
-        -logic_name => 'failed_cesar_himem',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -failed_job_tolerance => 100,
-        -can_be_empty  => 1,
-      },
-
-      {
-        -logic_name => 'cesar_classify_projection_coding_models',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
-        -parameters => {
-          skip_analysis => $self->o('skip_projection'),
-          classification_type => 'standard',
-          update_gene_biotype => 1,
-          target_db => $self->o('cesar_projection_coding_db'),
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['cesar_flag_problematic_projections'],
-#          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
-#          All analysis below create_projection_realign_db need to be uncommented too
-#          '1->A' => ['fix_unaligned_protein_hit_names'],
-#          'A->1' => ['create_projection_realign_db'],
-        },
-      },
-
-
-      {
-        -logic_name => 'cesar_flag_problematic_projections',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
-                                ' -host '.$self->o('cesar_projection_coding_db','-host').
-                                ' -port '.$self->o('cesar_projection_coding_db','-port').
-                                ' -user_w '.$self->o('cesar_projection_coding_db','-user').
-                                ' -pass '.$self->o('cesar_projection_coding_db','-pass').
-                                ' -dbname '.$self->o('cesar_projection_coding_db','-dbname').
-                                ' -dna_host '.$self->o('dna_db','-host').
-                                ' -dna_port '.$self->o('dna_db','-port').
-                                ' -user_r '.$self->o('dna_db','-user').
-                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
-                       },
-        -rc_name => '5GB',
-        -flow_into  => {
-          1 => ['cesar_fix_projection_db_issues'],
-        },
-      },
-
-
-      {
-        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
-        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
-        # previous analysis
-        -logic_name => 'cesar_fix_projection_db_issues',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn    => $self->o('cesar_projection_coding_db'),
-          sql => [
-            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
-            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['cesar_projection_coding_sanity_checks'],
-        },
-      },
-
-
-      {
-        -logic_name => 'cesar_projection_coding_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-          target_db => $self->o('cesar_projection_coding_db'),
-          sanity_check_type => 'gene_db_checks',
-          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
-        },
-        -rc_name    => '4GB',
-      },
-
-#      When the realign part is fixed, uncomment the whole block
-#      {
-#        -logic_name => 'create_projection_realign_db',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#        -parameters => {
-#          source_db => $self->o('dna_db'),
-#          target_db => $self->o('projection_realign_db'),
-#          create_type => 'clone',
-#        },
-#        -rc_name    => 'default',
-#        -flow_into => {
-#          '1->A' => ['create_ids_for_evaluate_projection'],
-#          'A->1' => ['update_realign_biotypes'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'create_ids_for_evaluate_projection',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-#        -parameters => {
-#          target_db => $self->o('projection_coding_db'),
-#          iid_type => 'feature_id',
-#          feature_type => 'transcript',
-#          batch_size => 500,
-#        },
-#        -rc_name    => 'default',
-#        -flow_into => {
-#          2 => ['evaluate_coding_transcripts'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'evaluate_coding_transcripts',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionRealignment',
-#        -parameters => {
-#          dna_db => $self->o('dna_db'),
-#          projection_db => $self->o('projection_coding_db'),
-#          projection_source_db => $self->o('projection_source_db'),
-#          projection_realign_db => $self->o('projection_realign_db'),
-#          protein_table_name => $self->o('realign_table_name'),
-#          max_feature_issues => $self->o('max_projection_structural_issues'),
-#        },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#          2 => ['realign_projection'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'realign_projection',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
-#        -parameters => {
-#          iid_type => 'projection_transcript_id',
-#          sequence_table_name => 'projection_source_sequences',
-#          projection_padding => 0,
-#          dna_db => $self->o('dna_db'),
-#          target_db => $self->o('projection_realign_db'),
-#          projection_db => $self->o('projection_coding_db'),
-#          logic_name => 'genblast',
-#          module => 'HiveGenblast',
-#          genblast_path => $self->o('genblast_path'),
-#          commandline_params => $genblast_params{$self->o('blast_type').'_projection'},
-#          query_seq_dir => $self->o('homology_models_path'),
-#          max_rank => 1,
-#          genblast_pid => $self->o('genblast_pid'),
-#          blast_eval => $self->o('genblast_eval'),
-#          blast_cov => $self->o('genblast_cov'),
-#          timer => '30m',
-#        },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#          -1 => ['failed_realignments'],
-#          -2 => ['failed_realignments'],
-#          -3 => ['failed_realignments'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'failed_realignments',
-#        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-#        -parameters => {},
-#        -rc_name    => 'default',
-#        -can_be_empty  => 1,
-#      },
-#
-#
-#      {
-#        -logic_name => 'update_realign_biotypes',
-#        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-#        -parameters => {
-#          db_conn    => $self->o('projection_realign_db'),
-#          sql => [
-#            'UPDATE gene SET biotype = "realign"',
-#            'UPDATE transcript SET biotype = "realign"',
-#          ],
-#        },
-#        -rc_name    => 'default',
-#        -flow_into => {
-#          1 => ['classify_realigned_models'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'classify_realigned_models',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
-#        -parameters => {
-#          classification_type => 'standard',
-#          update_gene_biotype => 1,
-#          target_db => $self->o('projection_realign_db'),
-#        },
-#        -rc_name    => 'default',
-#        -flow_into => {
-#          1 => ['realign_sanity_checks'],
-#        },
-#      },
-#
-#
-#      {
-#        -logic_name => 'realign_sanity_checks',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-#        -parameters => {
-#                         target_db => $self->o('projection_realign_db'),
-#                         sanity_check_type => 'gene_db_checks',
-#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'realign'},
-#                       },
-#
-#        -rc_name    => '4GB',
-#        -flow_into => {
-#                       1 => ['create_projection_lincrna_db'],
-#                      },
-#      },
-#
-#
-#      {
-#        -logic_name => 'create_projection_lincrna_db',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#        -parameters => {
-#                         source_db => $self->o('dna_db'),
-#                         target_db => $self->o('projection_lincrna_db'),
-#                         create_type => 'clone',
-#                       },
-#        -flow_into => {
-#                       1 => ['create_projection_pseudogene_db'],
-#                      },
-#      },
-#
-#
-#      {
-#        -logic_name => 'create_projection_pseudogene_db',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#        -parameters => {
-#                         source_db => $self->o('dna_db'),
-#                         target_db => $self->o('projection_pseudogene_db'),
-#                         create_type => 'clone',
-#                       },
-#
-#        -flow_into => {
-#                        1 => ['generate_projection_lincrna_ids','generate_projection_pseudogene_ids','generate_projection_ig_tr_ids'],
-#                      },
-#      },
-#
-#
-#      {
-#        -logic_name => 'generate_projection_lincrna_ids',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-#        -parameters => {
-#                         target_db => $self->o('projection_source_db'),
-#                         iid_type => 'feature_id',
-#                         feature_type => 'transcript',
-#                         feature_restriction => 'biotype',
-#                         biotypes => {
-#                                       'lincRNA' => 1,
-#                                     },
-#                         batch_size => 100,
-#        },
-#        -flow_into => {
-#                       '2->A' => ['run_project_lincrnas'],
-#                       'A->1' => ['project_lincrna_sanity_checks'],
-#                      },
-#        -rc_name    => 'default',
-#      },
-#
-#
-#      {
-#        -logic_name => 'run_project_lincrnas',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
-#        -parameters => {
-#                         'logic_name'                 => 'project_lincrna',
-#                         'source_dna_db'              => $self->o('projection_source_db'),
-#                         'target_dna_db'              => $self->o('dna_db'),
-#                         'source_db'                  => $self->o('projection_source_db'),
-#                         'target_db'                  => $self->o('projection_lincrna_db'),
-#                         'compara_db'                 => $self->o('projection_lastz_db'),
-#                         'method_link_type'           => 'LASTZ_NET',
-#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
-#                         'exonerate_path'             => $self->o('exonerate_path'),
-#                         'exonerate_coverage'         => $self->o('projection_lincrna_coverage'),
-#                         'exonerate_percent_id'       => $self->o('projection_lincrna_percent_id'),
-#                         'calculate_coverage_and_pid' => 0,
-#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_dna')},
-#			},
-#        -rc_name    => 'default',
-#        -hive_capacity => 900,
-#      },
-#
-#
-#      {
-#        -logic_name => 'project_lincrna_sanity_checks',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-#        -parameters => {
-#                         target_db => $self->o('projection_lincrna_db'),
-#                         sanity_check_type => 'gene_db_checks',
-#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_lincrna'},
-#                       },
-#        -rc_name    => '4GB',
-#      },
-#
-#
-#      {
-#        -logic_name => 'generate_projection_pseudogene_ids',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-#        -parameters => {
-#                         target_db => $self->o('projection_source_db'),
-#                         iid_type => 'feature_id',
-#                         feature_type => 'transcript',
-#                         feature_restriction => 'biotype',
-#                         biotypes => {
-#                                       'pseudogene' => 1,
-#                                       'processed_pseudogene' => 1,
-#                                       'unprocessed_pseudogene' => 1,
-#                                     },
-#                         batch_size => 100,
-#        },
-#        -flow_into => {
-#                       '2->A' => ['run_project_pseudogenes'],
-#                       'A->1' => ['project_pseudogene_sanity_checks'],
-#        },
-#        -rc_name    => 'default',
-#      },
-#
-#
-#      {
-#        -logic_name => 'run_project_pseudogenes',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
-#        -parameters => {
-#                         'logic_name'                 => 'project_pseudogene',
-#                         'source_dna_db'              => $self->o('projection_source_db'),
-#                         'target_dna_db'              => $self->o('dna_db'),
-#                         'source_db'                  => $self->o('projection_source_db'),
-#                         'target_db'                  => $self->o('projection_pseudogene_db'),
-#                         'compara_db'                 => $self->o('projection_lastz_db'),
-#                         'method_link_type'           => 'LASTZ_NET',
-#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
-#                         'exonerate_path'             => $self->o('exonerate_path'),
-#                         'exonerate_coverage'         => $self->o('projection_pseudogene_coverage'),
-#                         'exonerate_percent_id'       => $self->o('projection_pseudogene_percent_id'),
-#                         'calculate_coverage_and_pid' => 0,
-#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_pseudogene')},
-#			},
-#        -rc_name    => 'default',
-#        -hive_capacity => 900,
-#      },
-#
-#
-#      {
-#        -logic_name => 'project_pseudogene_sanity_checks',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-#        -parameters => {
-#                         target_db => $self->o('projection_pseudogene_db'),
-#                         sanity_check_type => 'gene_db_checks',
-#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_pseudogene'},
-#                       },
-#        -rc_name    => '4GB',
-#      },
-#
-#
-#      {
-#        -logic_name => 'generate_projection_ig_tr_ids',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-#        -parameters => {
-#                         target_db => $self->o('projection_source_db'),
-#                         iid_type => 'feature_id',
-#                         feature_type => 'transcript',
-#                         feature_restriction => 'biotype',
-#                         biotypes => {
-#                                       'IG_V_gene' => 1,
-#                                       'IG_D_gene' => 1,
-#                                       'IG_J_gene' => 1,
-#                                       'IG_C_gene' => 1,
-#                                       'TR_V_gene' => 1,
-#                                       'TR_J_gene' => 1,
-#                                       'TR_D_gene' => 1,
-#                                       'TR_C_gene' => 1,
-#                                     },
-#                         batch_size => 100,
-#        },
-#        -flow_into => {
-#                       '2->A' => ['run_project_ig_tr'],
-#                       'A->1' => ['project_ig_tr_sanity_checks'],
-#        },
-#        -rc_name    => 'default',
-#      },
-#
-#
-#      {
-#        -logic_name => 'run_project_ig_tr',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
-#        -parameters => {
-#                         'logic_name'                 => 'project_ig_tr',
-#                         'source_dna_db'              => $self->o('projection_source_db'),
-#                         'target_dna_db'              => $self->o('dna_db'),
-#                         'source_db'                  => $self->o('projection_source_db'),
-#                         'target_db'                  => $self->o('ig_tr_db'),
-#                         'compara_db'                 => $self->o('projection_lastz_db'),
-#                         'method_link_type'           => 'LASTZ_NET',
-#                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
-#                         'exonerate_path'             => $self->o('exonerate_path'),
-#                         'exonerate_coverage'         => $self->o('projection_ig_tr_coverage'),
-#                         'exonerate_percent_id'       => $self->o('projection_ig_tr_percent_id'),
-#                         'calculate_coverage_and_pid' => 1,
-#                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_ig_tr_protein')},
-#			},
-#        -rc_name    => 'default',
-#        -hive_capacity => 900,
-#      },
-#
-#
-#      {
-#        -logic_name => 'project_ig_tr_sanity_checks',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-#        -parameters => {
-#                         target_db => $self->o('ig_tr_db'),
-#                         sanity_check_type => 'gene_db_checks',
-#                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_ig_tr'},
-#                       },
-#        -rc_name    => '2GB',
-#      },
-
-      {
-        -logic_name => 'select_projected_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
-        -parameters => {
-          wga_db   => $self->o('projection_coding_db'),
-          cesar_db   => $self->o('cesar_projection_coding_db'),
-          output_db => $self->o('projection_output_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '4GB',
-        -flow_into => {
-                        1 => ['cluster_ig_tr_genes'],
-                      },
-      },
 
       {
         -logic_name => 'cluster_ig_tr_genes',
@@ -6636,7 +7279,7 @@ sub pipeline_analyses {
                          # These options will create only slices that have a gene on the slice in one of the feature dbs
                          feature_constraint => 1,
                          feature_type => 'gene',
-                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_coding_db'),$self->o('rnaseq_for_layer_db')],
+                         feature_dbs => [$self->o('genblast_db'),$self->o('selected_projection_db'),$self->o('rnaseq_for_layer_db')],
                       },
         -flow_into => {
                        '2'    => ['split_slices_on_intergenic'],
@@ -6883,6 +7526,23 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
+                        1 => ['update_lncrna_biotypes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_lncrna_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('genebuilder_db'),
+          sql => [
+            'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue","cdna")',
+            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
                         1 => ['pseudogenes'],
                       },
       },
@@ -6903,7 +7563,7 @@ sub pipeline_analyses {
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
 
-	     -rc_name    => '15GB',
+	     -rc_name    => '30GB',
 	     -flow_into => {
 			    1 => ['format_blast_db'],
                       },
@@ -6945,6 +7605,7 @@ sub pipeline_analyses {
                       },
       },
 
+
       {
         -logic_name => 'create_final_geneset_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -6955,24 +7616,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1' => ['update_lncrna_biotypes'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'update_lncrna_biotypes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => $self->o('final_geneset_db'),
-          sql => [
-            'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue")',
-            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['filter_lncrnas'],
+                        '1' => ['filter_lncrnas'],
                       },
       },
 
@@ -7115,7 +7759,7 @@ sub pipeline_analyses {
                                ." -dnadbport ".$self->o('dna_db','-port'),
                      },
         -max_retry_count => 0,
-        -rc_name => 'default',
+        -rc_name => '2GB',
         -flow_into => {
                         '1' => ['final_db_sanity_checks'],
                       },
@@ -7287,7 +7931,7 @@ sub pipeline_analyses {
                          target_db => $self->o('reference_db'),
                          copy_biotypes_to_ignore => $self->o('copy_biotypes_to_ignore'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '1GB',
       },
 
 
@@ -7377,7 +8021,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
                        },
-        -rc_name => '5GB',
+        -rc_name => '10GB',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -7393,7 +8037,7 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '2GB',
+        -rc_name => '10GB',
         -flow_into => { 1 => ['null_columns'] },
       },
 
@@ -8114,7 +8758,7 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
@@ -8129,11 +8773,11 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph_himem',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
-        -rc_name => '8GB',
+        -rc_name => '40GB',
         -flow_into  => {
           1 => ['bedgrap2bigwig_himem'],
         },
@@ -8172,7 +8816,7 @@ sub pipeline_analyses {
         -logic_name => 'clean_bg_files',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
+          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
           working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
@@ -8263,7 +8907,10 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -driver '.$self->o('hive_driver').
                                 ' -assembly_accession '.$self->o('assembly_accession').
-                                ' -assembly_name '.$self->o('assembly_name'),
+                                ' -assembly_name '.$self->o('assembly_name').
+                                ' -registry_host '.$self->o('registry_host').
+                                ' -registry_port '.$self->o('registry_port').
+                                ' -registry_db '.$self->o('registry_db'),
                        },
         -rc_name => 'default',
        },
@@ -8277,16 +8924,20 @@ sub resource_classes {
 
   return {
     '1GB' => { LSF => $self->lsf_resource_builder('production-rh74', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]}, 
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB_registry' => { LSF => [$self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '7GB' => { LSF => $self->lsf_resource_builder('production-rh74', 7000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '8GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production-rh74', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '15GB' => { LSF => $self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '25GB' => { LSF => $self->lsf_resource_builder('production-rh74', 25000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -8308,7 +8959,7 @@ sub resource_classes {
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 7200, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh74', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh74', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -8331,6 +8982,13 @@ sub hive_capacity_classes {
            'hc_medium' => 500,
            'hc_high'   => 1000,
          };
+}
+
+
+sub check_file_in_ensembl {
+  my ($self, $file_path) = @_;
+  push @{$self->{'_ensembl_file_paths'}}, $file_path;
+  return $self->o('enscode_root_dir').'/'.$file_path;
 }
 
 1;

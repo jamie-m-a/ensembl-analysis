@@ -184,6 +184,9 @@ sub write_output {
 
   my $dbc = $self->hrdb_get_con('target_db')->dbc;
 
+  if($self->param('classification_type') eq 'long_read') {
+    $self->set_long_read_biotypes($dbc);
+  }
 
   my $sth = $dbc->prepare('CREATE table transcript_classify_bak like transcript');
   eval {
@@ -197,10 +200,6 @@ sub write_output {
     $sth->execute();
   }
 
-  if($self->param('classification_type') eq 'long_read') {
-    $self->set_long_read_biotypes($dbc);
-  }
-
   $sth = $dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb USING(transcript_id) '.
       'LEFT JOIN transcript_supporting_feature tsf USING(transcript_id) '.
       'LEFT JOIN '.$self->param('feature_type').' taf ON taf.'.$self->param('feature_type').'_id = tsf.feature_id '.
@@ -209,6 +208,7 @@ sub write_output {
   my $classification = $self->param('classification');
 
   if ($self->param('classification_type') eq 'standard' or
+      $self->param('classification_type') eq 'long_read' or
       $self->param('classification_type') eq 'fish' or
       $self->param('classification_type') eq 'gifts') {
     foreach my $key (sort {$b <=> $a} keys %{$classification}) {

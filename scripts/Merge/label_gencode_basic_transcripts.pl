@@ -80,7 +80,6 @@ my $coord_system_version;
 my $write; # boolean
 my $verbose; # boolean
 my $code = 'gencode_basic';
-my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less than 10000 base pair long in e79
 
 # use most recent
 my $production_dbname = 'ensembl_production';
@@ -189,6 +188,7 @@ my $known_biotypes = {
                      'sense_intronic'                     => 'noncoding',
                      'sense_overlapping'                  => 'noncoding',
                      'lincRNA'                            => 'noncoding',
+                     'lncRNA'                             => 'noncoding',
                      'macro_lncRNA'                       => 'noncoding_second_choice',
                      'ribozyme'                           => 'noncoding_second_choice',
                      'scaRNA'                             => 'noncoding_second_choice',
@@ -426,7 +426,18 @@ sub giveMeBasicAnnotationTranscripts{  # as a parameter I give a gene object and
 
 }  #end of method!!!
 
-sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a reference of a list with the basic coding transcript objects of the gene
+=head2 returnBasicCodingAnnotation
+ 
+ Arg [1]    : Bio::EnsEMBL::Gene
+ Example    : $self->returnBasicCodingAnnotation($gene);
+ Description: It returns a reference to a list containing the basic coding transcript objects of the given gene.
+              Criteria to select the basic coding transcripts can be found at the end of this file.
+ Returntype : listref of Bio::EnsEMBL::Transcript
+ Exceptions : None.
+ 
+=cut
+
+sub returnBasicCodingAnnotation {
 
   my $gene=shift;
   my @transcripts=@{$gene->get_all_Transcripts};
@@ -484,7 +495,7 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
           if($cdsLengthStoredTranscript < $cdsLengthTranscript){
             @cdsLongest=();
             push(@cdsLongest,$transcript);
-          }elsif($cdsLengthStoredTranscript == $cdsLengthStoredTranscript){
+          }elsif($cdsLengthStoredTranscript == $cdsLengthTranscript){
 
             push(@cdsLongest,$transcript);    # I end up having in this array all transcript object with same biggest cds length
           }
@@ -751,7 +762,7 @@ sub getScoreExonsCoverAndLength {
     }
   }
 
-  my $length_score_percentage = min(($MAX_TRANSCRIPT_LENGTH-1)/$MAX_TRANSCRIPT_LENGTH,$transcript->length()/$MAX_TRANSCRIPT_LENGTH);
+  my $length_score_percentage = 1-(1/$transcript->length());
   my $score = $numExonsCovered+$length_score_percentage;
 
   return $score;

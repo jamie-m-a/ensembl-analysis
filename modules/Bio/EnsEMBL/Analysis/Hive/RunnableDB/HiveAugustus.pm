@@ -1,13 +1,13 @@
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2019] EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -37,7 +37,6 @@ implement much itself
 
 =head1 CONTACT
 
-Post questions to : anacode-people@sanger.ac.uk
 
 =cut
 
@@ -57,50 +56,60 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 
 sub fetch_input{
-  my ($self) = @_;
+  my $self = shift;
 
   my $repeat_masking = $self->param('repeat_masking_logic_names');
   my $soft_masking = $self->param('soft_matching');
-  my $write_dir = $self->param('write_dir');
+  my $write_dir = $self->param_required('write_dir');
 
-#  my $dba;
+#  my $aug_path = $self->param_required('augustus_path');
+#  my $hints_file = $self->param_required('augustus_hints');
+#  print $aug_path,"\n";
+#  print $hints_file,"\n";
+
   my $dna_db = $self->get_database_by_name('dna_db');
   my $dba = $self->get_database_by_name('target_db', $dna_db);
   $self->hrdb_set_con($dba,'target_db');
 
-  # if($self->param('use_genome_flatfile') ) {
-  #   say "Ingoring dna table and using fasta file for sequence fetching";
-  #   unless($self->param_required('genome_file') && -e $self->param('genome_file') ) {
-  #     $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-  #   } 
-  #   setup_fasta(
-  #                -FASTA => $self->param_required('genome_file'),
-  #              );
+#   if($self->param('use_genome_flatfile') ) {
+#     say "Ingoring dna table and using fasta file for sequence fetching";
+#     unless($self->param_required('genome_file') && -e $self->param('genome_file') ) {
+#       $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+#    }
+#     setup_fasta(
+#                  -FASTA => $self->param_required('genome_file'),
+#                );
+#    }
+#
+#    elsif($self->param('dna_db')) {
+#     say "Attaching dna db to target";
+#     my $dna_db = $self->get_database_by_name('dna_db');
+#     $dba = $self->get_database_by_name('target_db', $dna_db);
+#     $self->hrdb_set_con($dba,'target_db');
+#    }
 
-  # } 
+#   else {
+#     say "Assuming the target db has dna";
+# }
 
-  # elsif($self->param('dna_db')) {
-  #   say "Attaching dna db to target";
-  #   my $dna_db = $self->get_database_by_name('dna_db');
-  #   $dba = $self->get_database_by_name('target_db', $dna_db);
-  #   $self->hrdb_set_con($dba,'target_db');
-  # } 
-
-  # else {
-  #   say "Assuming the target db has dna";
-  # }
-  
 
   my $input_id = $self->param('iid');
-  print $input_id,"\n";
-  exit 1;
+
   my $slice = $self->fetch_sequence($input_id, $dba, $repeat_masking, $soft_masking);
   $self->query($slice);
+
+  my $options .= "--hintsfile=".$self->param('augustus_hints') if $self->param('augustus_hints');
+  $options .= " --extrinsicCfgFile=".$self->param('aug_config') if $self->param('aug_config');
+  $options .= " --UTR=on";
+  $options .= " --alternatives-from-evidence=true";
+  $options .= " --allow_hinted_splicesites=atac";
+
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
                                               -module => $self->param('module'),
                                               -program_file => $self->param('augustus_path'),
+                                              -parameters => $options,
                                             );
 
   $self->param('analysis',$analysis);
@@ -113,7 +122,6 @@ sub fetch_input{
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::AugustusGene->new
                  (
                     -query => $self->query,
-                    -program => $analysis->program_file,
                     -analysis => $self->param('analysis'),
                     -species => $self->param('species'),
                     -workdir => $write_dir,

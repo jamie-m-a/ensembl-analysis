@@ -2,13 +2,13 @@
 package Bio::EnsEMBL::Analysis::Runnable::Finished::AugustusGene;
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2019] EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -65,13 +65,13 @@ use parent('Bio::EnsEMBL::Analysis::Runnable');
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  
-  my ($species) = rearrange(['SPECIES'], @args);
+
+  my ($species, $hints) = rearrange(['SPECIES'], @args);
   $self->species($species);
-  $self->program('/homes/thibaut/src/Augustus/bin/augustus') if(!$self->program);
+#  $self->analysis->program_file('/homes/thibaut/src/Augustus/bin/augustus') if(!$self->analysis->program_file);
   return $self;
 }
- 
+
 
 
 sub species {
@@ -86,7 +86,7 @@ sub species {
 sub run{
   my ($self, $dir) = @_;
   $self->workdir($dir) if($dir);
-  throw("Can't run ".$self." without a query sequence") 
+  throw("Can't run ".$self." without a query sequence")
     unless($self->query);
   $self->checkdir();
   my $filename = $self->write_seq_file();
@@ -101,13 +101,13 @@ sub run{
 sub run_analysis{
   my ($self, $program) = @_;
   if(!$program){
-    $program = $self->program;
+    $program = $self->analysis->program_file;
   }
   throw($program." is not executable Augustus::run_analysis ")
     unless($program && -x $program);
 
   my $command = $program." --species=".$self->species." ";
-  $command .= $self->options." " if($self->options);
+  $command .=$self->analysis->parameters." " if($self->analysis->parameters);
   $command .= $self->queryfile." > ".$self->resultsfile;
   print "Running analysis ".$command."\n";
   system($command) == 0 or throw("FAILED to run ".$command);
@@ -150,9 +150,6 @@ sub parse_results{
       }
 
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6];
-#      my @temp = split' ',$chromosome;
-#      my $new_chrom = shift(@temp);
-#      my $slice = $slice_adaptor->fetch_by_name($new_chrom);
 
       my ($transcript_id,$gene_id) = $elements[8] =~ /transcript_id "(.*)"; gene_id "(.*)";/;
       my $group = $transcript_id."_".$gene_id;
@@ -180,9 +177,6 @@ sub parse_results{
                                              -slice => $transcripts{$tid}->{slice});
 
 #    $tran->{'accession'} = $transcripts{$tid}->{hitname};
-#    $tran->{'pid'} = $transcripts{$tid}->{pid};
-#    $tran->{'cov'} = $transcripts{$tid}->{cov};
-#    $tran->{'rank'} = $transcripts{$tid}->{rank};
     $tran->{'augustus_id'} = $tid;
     $tran->{'slice_name'} = $transcripts{$tid}->{slice_name};
 

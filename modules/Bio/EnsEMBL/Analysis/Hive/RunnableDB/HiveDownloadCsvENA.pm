@@ -82,7 +82,9 @@ sub param_defaults {
     _read_length => 1,
     _centre_name => 'ENA',
     print_all_info => 0,
-    paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data 
+    paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data
+    read_type => 'short_read',
+    instrument_platform => 'ILLUMINA',
   }
 }
 
@@ -101,13 +103,17 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  if($self->param_required('read_type') eq 'isoseq') {
+    $self->param('paired_end_only',0);
+    $self->param('instrument_platform','PACBIO_SMRT'),
+  }
   $self->param_required('inputfile');
   if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
     $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
   } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
-    $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
+    $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform='.$self->param('instrument_platform').' AND library_source=TRANSCRIPTOMIC');
   } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
   }
@@ -206,6 +212,7 @@ sub run {
             if ($row[$fields_index{library_layout}] eq 'PAIRED') {
               $read_length /= 2;
             }
+            next if ($read_length < 75);
             my %line = (
               run_accession => $row[$fields_index{run_accession}],
               instrument_model => $row[$fields_index{instrument_model}],
@@ -319,7 +326,7 @@ sub run {
       my %dev_stages;
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
-        unless($sample =~ /^SAMN/) {
+        unless($sample =~ /^SAM/) {
           next;
 	}
         next unless (exists $samples{$sample});
@@ -331,7 +338,7 @@ sub run {
       }
       if (scalar(keys(%dev_stages)) > 1) {
         foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAMN/) {
+          unless($sample =~ /^SAM/) {
             next;
   	  }
           next unless (exists $samples{$sample});
@@ -352,7 +359,7 @@ sub run {
       }
       else {
         foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAMN/) {
+          unless($sample =~ /^SAM/) {
             next;
   	  }
           next unless (exists $samples{$sample});
@@ -403,7 +410,7 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
-      unless($sample =~ /^SAMN/) {
+      unless($sample =~ /^SAM/) {
         next;
       }
       next unless (exists $samples->{$sample});
@@ -428,20 +435,30 @@ sub write_output {
             }
           }
           $description =~ tr/:\t/ /;
-          print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
-            lc($sample_name),
-            $experiment->{run_accession},
-            $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
-            $filename,
-            -1,
-            $experiment->{read_length},
-            0,
-            $experiment->{center_name} || $self->param('_centre_name'),
-            $experiment->{instrument_platform},
-            $study_accession,
-            $sample,
-            $description,
-          );
+          if($self->param('read_type') eq 'short_read') {
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
+              lc($sample_name),
+              $experiment->{run_accession},
+              $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
+              $filename,
+              -1,
+              $experiment->{read_length},
+              0,
+              $experiment->{center_name} || $self->param('_centre_name'),
+              $experiment->{instrument_platform},
+              $study_accession,
+              $sample,
+              $description,
+            );
+	  } elsif($self->param('read_type') eq 'isoseq') {
+            print FH sprintf("%s\t%s\t%s\n",
+              lc($sample_name),
+              $filename,
+              $description,
+            );
+	  } else {
+            $self->throw('Read type unknown: '.$self->param('read_type'));
+	  }
           push(@output_ids, {url => $file, download_method => $download_method, checksum => $checksums[$index++]});
         }
       }

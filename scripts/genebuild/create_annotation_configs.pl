@@ -80,6 +80,11 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 
 my $general_hash = {};
 
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
+
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
     my $line = $_;
@@ -231,12 +236,15 @@ foreach my $accession (@accession_array) {
 
   # Get stable id start
   my $stable_id_start;
-  if ($general_hash->{'stable_id_start'}>=0) {
+  if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
     $stable_id_start = $general_hash->{'stable_id_start'};
   }
   else {
     $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
   }
+ unless (defined($stable_id_start)) {
+   throw ("Could not find stable id start");
+ }
   say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
   $assembly_hash->{'stable_id_start'} = $stable_id_start;
 
@@ -648,6 +656,8 @@ sub custom_load_data {
 
 sub init_pipeline {
     my ($assembly_hash,$hive_directory,$force_init,$fh) = @_;
+
+    my $reg_conf_path = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
 
     chdir($assembly_hash->{'output_path'});
     my $cmd;
