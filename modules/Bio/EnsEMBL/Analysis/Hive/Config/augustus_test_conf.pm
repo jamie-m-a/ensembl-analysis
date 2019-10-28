@@ -182,6 +182,7 @@ sub pipeline_analyses {
       -flow_into => {
                         '2->A' => ['run_augustus'],
                         'A->1' => ['notify'],
+                        'A->1' => ['dump_gff3'],
                     },
     },
 
@@ -207,38 +208,38 @@ sub pipeline_analyses {
                     }
   	},
 
-    {
-      -logic_name    => 'notify',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -meadow_type   => 'LOCAL',
-      -parameters    => {
-          'text' => "PLACEHOLDER POST PROCESSING of OUTPUT to FOLLOW",
-          'cmd' => 'notify-send "#text#"',
-        },
-    },
+#    {
+#      -logic_name    => 'notify',
+#      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#      -meadow_type   => 'LOCAL',
+#      -parameters    => {
+#          'text' => "PLACEHOLDER POST PROCESSING of OUTPUT to FOLLOW",
+#          'cmd' => 'notify-send "#text#"',
+#        },
+#    },
 
-    {
-      -logic_name     => 'dump_job_factory',
-      -module         => 'Bio::EnsEMBL::Production::Pipeline::Common::SpeciesFactory',
-            -parameters     => {
-         division => 'vertebrates',
-       },
-            -input_ids      => [ {} ],
-      -hive_capacity   => -1,
-      -rc_name        => 'default',
-            -max_retry_count => 1,
-            -flow_into       => { '2' => 'backbone_job_pipeline'},
-    },
+    # {
+    #   -logic_name     => 'dump_job_factory',
+    #   -module         => 'Bio::EnsEMBL::Production::Pipeline::Common::SpeciesFactory',
+    #         -parameters     => {
+    #      division => 'vertebrates',
+    #    },
+    #         -input_ids      => [ {} ],
+    #   -hive_capacity   => -1,
+    #   -rc_name        => 'default',
+    #         -max_retry_count => 1,
+    #         -flow_into       => { '2' => 'backbone_job_pipeline'},
+    # },
 
-    {
-      -logic_name     => 'backbone_job_pipeline',
-            -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-            -hive_capacity  => -1,
-      -rc_name        => 'default',
-            -flow_into      => {
-          '1' => 'dump_gff3',
-                               }
-    },
+#    {
+    #   -logic_name     => 'backbone_job_pipeline',
+    #         -module         => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+    #         -hive_capacity  => -1,
+    #   -rc_name        => 'default',
+    #         -flow_into      => {
+    #       '1' => 'dump_gff3',
+    #                            }
+    # },
 
     {
             -logic_name     => 'dump_gff3',
